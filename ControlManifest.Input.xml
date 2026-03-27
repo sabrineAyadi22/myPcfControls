@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest>
+  <control
+    namespace="Contoso"
+    constructor="DataverseCaller"
+    version="1.0.0"
+    display-name-key="DataverseCaller"
+    description-key="DataverseCaller description"
+    control-type="standard">
+
+    <!-- INPUTS (Canvas -> PCF) -->
+    <property
+      name="sellingPrice"
+      display-name-key="Selling Price"
+      description-key="Selling price input"
+      of-type="Decimal"
+      usage="input"
+      required="false" />
+
+    <property
+      name="costPrice"
+      display-name-key="Cost Price"
+      description-key="Cost price input"
+      of-type="Decimal"
+      usage="input"
+      required="false" />
+
+    <property
+      name="indiceName"
+      display-name-key="Indice"
+      description-key="Indice/function name"
+      of-type="SingleLine.Text"
+      usage="input"
+      required="false" />
+
+    <!-- OUTPUTS (PCF -> Canvas) -->
+    <property
+      name="resultValue"
+      display-name-key="Result"
+      description-key="Calculated result"
+      of-type="Decimal"
+      usage="output"
+      required="false" />
+
+    <property
+      name="debugText"
+      display-name-key="Debug"
+      description-key="Debug info"
+      of-type="Multiple"
+      usage="output"
+      required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+
+  </control>
+</manifest>
