@@ -11,4 +11,5 @@ export interface IInputs {
 export interface IOutputs {
     resultValue?: number;
     debugText?: string;
+    benefit?: string;
 }
