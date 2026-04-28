@@ -8,7 +8,7 @@
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props')" />
 
   <PropertyGroup>
-    <ProjectGuid>44dcb180-0c8a-4f7a-8eb0-884c985a41ee</ProjectGuid>
+    <ProjectGuid>1ab763b4-b998-4cd3-abe1-d038f663b134</ProjectGuid>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <!--Remove TargetFramework when this is available in 16.1-->
     <TargetFramework>net462</TargetFramework>
@@ -54,5 +54,15 @@
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.targets" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.targets')" />
+
+  <!--
+    Workaround for intermittent file locks on obj\Debug\Metadata after packaging.
+    Packaging already succeeded at this point; treat cleanup failures as warnings.
+  -->
+  <Target Name="CleanUpIntermediateFiles" AfterTargets="PowerAppsPackage">
+    <RemoveDir Directories="$(SolutionPackagerMetadataWorkingDirectory)" Condition="Exists('$(SolutionPackagerMetadataWorkingDirectory)')" ContinueOnError="WarnAndContinue" />
+    <RemoveDir Directories="$(SolutionPackagerLocalizationWorkingDirectory)" Condition="Exists('$(SolutionPackagerLocalizationWorkingDirectory)')" ContinueOnError="WarnAndContinue" />
+    <Message Importance="High" Text="Completed intermediate files clean up (warnings ignored when files are locked)." />
+  </Target>
 
 </Project>

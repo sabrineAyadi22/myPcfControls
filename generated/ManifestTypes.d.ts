@@ -4,12 +4,16 @@
 
 // Define IInputs and IOutputs Type. They should match with ControlManifest.
 export interface IInputs {
-    sellingPrice: ComponentFramework.PropertyTypes.DecimalNumberProperty;
-    costPrice: ComponentFramework.PropertyTypes.DecimalNumberProperty;
-    indiceName: ComponentFramework.PropertyTypes.StringProperty;
+    indicesJson: ComponentFramework.PropertyTypes.StringProperty;
+    DefaultValue: ComponentFramework.PropertyTypes.StringProperty;
+    GapPercentThreshold: ComponentFramework.PropertyTypes.DecimalNumberProperty;
+    ShowValidation: ComponentFramework.PropertyTypes.TwoOptionsProperty;
 }
 export interface IOutputs {
-    resultValue?: number;
-    debugText?: string;
-    benefit?: string;
+    OutputData?: string;
+    HasValidationError?: boolean;
+    ValidationErrorRows?: string;
+    ShowCommentPopup?: boolean;
+    CommentPopupData?: string;
+    ValidationStatusSummary?: string;
 }
