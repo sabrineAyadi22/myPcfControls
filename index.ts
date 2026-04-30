@@ -43,6 +43,7 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
   private _rowUnitMap: Map<string, HTMLSelectElement> = new Map();
   private _rowRatioMap: Map<string, number | null> = new Map();
   private _rowKeyByItem: WeakMap<RowItem, string> = new WeakMap();
+  private _lockedUnitByIndicator: Map<string, string> = new Map();
 
   // Deferred recompute callbacks for formula rows and validation UI.
   private _dependentComputes: Array<() => void> = [];
@@ -62,6 +63,36 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
 
   private normalizeCodeKey(code: string | null | undefined): string {
     return (code ?? "").trim().toLowerCase();
+  }
+
+  // Stable identity per indicator used to keep locked units across refreshes.
+  private getIndicatorIdentity(item: RowItem): string {
+    const dataId = typeof item.DataID === "string" ? item.DataID.trim().toLowerCase() : "";
+    const itemRec = item as Record<string, unknown>;
+    const rawCategory = this.getFieldValue(
+      itemRec,
+      ["Category", "category", "CategoryCode", "categoryCode", "CategoryName", "categoryName"],
+      true
+    );
+    const category = typeof rawCategory === "string" ? rawCategory.trim().toLowerCase() : "";
+    const code = this.normalizeCodeKey(item.Code);
+
+    if (dataId && category) {
+      return `dataid:${dataId}|category:${category}|code:${code}`;
+    }
+    if (dataId) {
+      return `dataid:${dataId}|code:${code}`;
+    }
+    return category ? `category:${category}|code:${code}` : `code:${code}`;
+  }
+
+  // Read-only (Type 2) indicators or those with an explicit keepUnit/lockUnit flag always keep their own unit.
+  // Editable (Type 1) indicators — including those with FormulaText — follow category unit sync.
+  private shouldKeepOwnUnit(item: RowItem): boolean {
+    const itemRec = item as Record<string, unknown>;
+    const explicitLockFlag = this.getFieldValue(itemRec, ["KeepUnit", "LockUnit", "keepUnit", "lockUnit"], true);
+    const hasExplicitLock = explicitLockFlag === true || explicitLockFlag === 1 || explicitLockFlag === "1";
+    return this.getInputMode(item) !== 1 || hasExplicitLock;
   }
 
   // Build a stable row key to prevent collisions when codes repeat across categories.
@@ -193,7 +224,8 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
         Code: item.Code,
         DataID: item.DataID ?? null,
         Value: value,
-        selectedUnit: select ? select.value : (item.selectedUnit ?? null),
+        selectedUnit: this._lockedUnitByIndicator.get(this.getIndicatorIdentity(item))
+          ?? (select ? select.value : (item.selectedUnit ?? null)),
         Ratio: ratio ?? null
       });
 
@@ -383,6 +415,21 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
       this.getFieldValue(itemRec, ["selectedUnit", "SelectedUnit", "Unit"], true) ??
       item.selectedUnit;
     const selectedUnit = this.normalizeUnit(typeof selectedUnitRaw === "string" ? selectedUnitRaw : null);
+    const indicatorIdentity = this.getIndicatorIdentity(item);
+    const keepOwnUnit = this.shouldKeepOwnUnit(item);
+    // Always check the override map first — preserves user-driven and propagated unit choices across re-renders.
+    const unitOverride = this._lockedUnitByIndicator.get(indicatorIdentity);
+    // For locked rows (Type 2): always use override if set, else use incoming data and lock it immediately.
+    // For editable rows: use override only if set by a user action; otherwise use incoming data.
+    let effectiveSelectedUnit: string | null;
+    if (keepOwnUnit) {
+      effectiveSelectedUnit = unitOverride ?? selectedUnit;
+      if (!unitOverride && selectedUnit) {
+        this._lockedUnitByIndicator.set(indicatorIdentity, selectedUnit);
+      }
+    } else {
+      effectiveSelectedUnit = unitOverride ?? selectedUnit;
+    }
     const baseUnit = this.getBaseUnit(item);
     const rowCodeKey = this.getRowKey(item);
     const categoryKey = this.getCategoryKey(item, toUnits);
@@ -390,15 +437,22 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
     if (toUnits.length === 0) {
       this.addOption(unitSelect, "No unit", "No unit");
     } else {
-      const matchedSelectedUnit = this.findMatchingUnit(toUnits, selectedUnit);
-      if (selectedUnit && !matchedSelectedUnit) {
-        toUnits.unshift(selectedUnit);
+      const matchedSelectedUnit = this.findMatchingUnit(toUnits, effectiveSelectedUnit);
+      if (effectiveSelectedUnit && !matchedSelectedUnit) {
+        toUnits.unshift(effectiveSelectedUnit);
       }
       toUnits.forEach(u => this.addOption(unitSelect, u, u));
-      const finalSelected = this.findMatchingUnit(toUnits, selectedUnit) ?? toUnits[0];
+      const finalSelected = this.findMatchingUnit(toUnits, effectiveSelectedUnit) ?? toUnits[0];
       unitSelect.value = finalSelected;
       const selectedIndex = toUnits.findIndex(u => this.areUnitsEqual(u, finalSelected));
       unitSelect.selectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+      // Always persist the resolved unit for all rows — survives Canvas re-sends of indicesJson.
+      if (finalSelected) {
+        this._lockedUnitByIndicator.set(indicatorIdentity, finalSelected);
+        item.selectedUnit = finalSelected;
+        itemRec["selectedUnit"] = finalSelected;
+      }
     }
 
     colUnit.appendChild(unitSelect);
@@ -847,22 +901,21 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
     return "default";
   }
 
-  // When one unit changes, apply the same unit to rows in the same category.
-  private applyUnitToCategory(categoryKey: string, selectedUnit: string): void {
+  // When one unit changes, apply the same unit to all editable non-locked rows.
+  // Rows protected by shouldKeepOwnUnit (calculated, FormulaText, explicit lock flag) are skipped.
+  // The _categoryKey parameter is kept for signature compatibility but no longer used as a filter;
+  // category grouping only matters when an explicit Category field exists in the data.
+  private applyUnitToCategory(_categoryKey: string, selectedUnit: string): void {
     for (const row of this._allItems) {
-      const rowRec = row as Record<string, unknown>;
-      const rowUnitsRaw =
-        this.getFieldValue(rowRec, ["categoryUnits", "Units", "UnitConversions", "UnitsJson"], true) ??
-        row.categoryUnits;
-      const rowUnits = this.extractUnitOptions(rowUnitsRaw);
-      const rowCategoryKey = this.getCategoryKey(row, rowUnits);
-
-      if (rowCategoryKey !== categoryKey) {
+      if (this.getInputMode(row) !== 1 || this.shouldKeepOwnUnit(row)) {
         continue;
       }
 
+      const rowRec = row as Record<string, unknown>;
+
       row.selectedUnit = selectedUnit;
       rowRec["selectedUnit"] = selectedUnit;
+      this._lockedUnitByIndicator.set(this.getIndicatorIdentity(row), selectedUnit);
 
       const rowCodeKey = this.getRowKey(row);
       const select = rowCodeKey ? this._rowUnitMap.get(rowCodeKey) : undefined;

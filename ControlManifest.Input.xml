@@ -3,7 +3,7 @@
   <control
     namespace="VeoliaLiveCalculationComponent"
     constructor="LiveCalculationComponent"
-    version="1.0.43"
+    version="1.0.52"
     display-name-key="LiveCalculationComponent"
     description-key="LiveCalculationComponent"
     control-type="standard">
