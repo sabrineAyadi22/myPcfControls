@@ -3,7 +3,7 @@
   <control
     namespace="VeoliaLiveCalculationComponent"
     constructor="LiveCalculationComponent"
-    version="1.0.52"
+      version="1.0.55"
     display-name-key="LiveCalculationComponent"
     description-key="LiveCalculationComponent"
     control-type="standard">
@@ -33,6 +33,12 @@
           of-type="TwoOptions"
           usage="input"
           required="false" />
+          <property name="IsValidatorForm"
+            display-name-key="Is Validator Form"
+            description-key="When true, all fields are displayed as read-only regardless of their type"
+            of-type="TwoOptions"
+            usage="input"
+            required="false" />
     <!-- PCF -> Canvas: all current row data as JSON (Code, Value, selectedUnit) -->
     <property name="OutputData"
               display-name-key="Output Data"

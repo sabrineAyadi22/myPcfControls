@@ -8,6 +8,7 @@ export interface IInputs {
     DefaultValue: ComponentFramework.PropertyTypes.StringProperty;
     GapPercentThreshold: ComponentFramework.PropertyTypes.DecimalNumberProperty;
     ShowValidation: ComponentFramework.PropertyTypes.TwoOptionsProperty;
+    IsValidatorForm: ComponentFramework.PropertyTypes.TwoOptionsProperty;
 }
 export interface IOutputs {
     OutputData?: string;

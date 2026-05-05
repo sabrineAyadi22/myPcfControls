@@ -36,6 +36,8 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
   private lastDefaultValue: string | null = null;
   private lastGapPercentThreshold: number = 50;
   private lastShowValidation: boolean = false;
+  private lastIsValidatorForm: boolean = false;
+  private _isValidatorForm: boolean = false;
 
   // Runtime maps for row inputs, units, computed ratios, and stable row keys.
   private _allItems: RowItem[] = [];
@@ -165,10 +167,12 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
     const defaultValue = context.parameters.DefaultValue.raw ?? null;
     const gapPercentThreshold = this.resolveGapPercentThreshold(context.parameters.GapPercentThreshold.raw);
     const showValidation = context.parameters.ShowValidation.raw === true;
+    const isValidatorForm = context.parameters.IsValidatorForm.raw === true;
     const dataChanged =
       raw !== this.lastJson ||
       defaultValue !== this.lastDefaultValue ||
-      gapPercentThreshold !== this.lastGapPercentThreshold;
+      gapPercentThreshold !== this.lastGapPercentThreshold ||
+      isValidatorForm !== this.lastIsValidatorForm;
     const showValidationChanged = showValidation !== this.lastShowValidation;
 
     if (dataChanged) {
@@ -305,6 +309,9 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
     const showValidation = context.parameters.ShowValidation.raw === true;
     this.lastShowValidation = showValidation;
     this._showValidation = showValidation;
+    const isValidatorForm = context.parameters.IsValidatorForm.raw === true;
+    this.lastIsValidatorForm = isValidatorForm;
+    this._isValidatorForm = isValidatorForm;
 
     this.container.innerHTML = "";
     this.injectStyles(this.container);
@@ -403,7 +410,8 @@ export class LiveCalculationComponent implements ComponentFramework.StandardCont
     unitSelect.className = "unitSelect";
 
     const inputMode = this.getInputMode(item);
-    const editableInput = inputMode === 1;
+    // When IsValidatorForm is true every row is forced to read-only display mode.
+    const editableInput = inputMode === 1 && !this._isValidatorForm;
     unitSelect.disabled = !editableInput;
 
     const itemRec = item as Record<string, unknown>;
